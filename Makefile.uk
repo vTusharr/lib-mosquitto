@@ -1,0 +1,254 @@
+#  SPDX-License-Identifier: BSD-3-Clause
+#
+#  Eclipse Mosquitto Makefile.uk
+#
+#
+#  Copyright (c) 2026, Unikraft Contributors. All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. Neither the name of the copyright holder nor the names of its
+#     contributors may be used to endorse or promote products derived from
+#     this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#  POSSIBILITY OF SUCH DAMAGE.
+#
+
+################################################################################
+# library registration
+################################################################################
+$(eval $(call addlib_s,libmosquitto,$(CONFIG_LIBMOSQUITTO)))
+
+################################################################################
+# sources
+################################################################################
+LIBMOSQUITTO_VERSION = 2.1.2
+LIBMOSQUITTO_BASENAME = mosquitto-$(LIBMOSQUITTO_VERSION)
+LIBMOSQUITTO_URL = https://mosquitto.org/files/source/$(LIBMOSQUITTO_BASENAME).tar.gz
+$(eval $(call fetch,libmosquitto,$(LIBMOSQUITTO_URL)))
+
+################################################################################
+# cjson dependency
+################################################################################
+LIBMOSQUITTO_CJSON_VERSION = 1.7.18
+LIBMOSQUITTO_CJSON_BASENAME = cJSON-$(LIBMOSQUITTO_CJSON_VERSION)
+LIBMOSQUITTO_CJSON_URL = https://github.com/DaveGamble/cJSON/archive/refs/tags/v$(LIBMOSQUITTO_CJSON_VERSION).tar.gz
+$(eval $(call fetch,libmosquitto_cjson,$(LIBMOSQUITTO_CJSON_URL)))
+LIBMOSQUITTO_CJSON_SRC = $(LIBMOSQUITTO_CJSON_ORIGIN)/$(LIBMOSQUITTO_CJSON_BASENAME)
+
+################################################################################
+# Helpers
+################################################################################
+LIBMOSQUITTO_SRC = $(LIBMOSQUITTO_ORIGIN)/$(LIBMOSQUITTO_BASENAME)/src
+LIBMOSQUITTO_LIB = $(LIBMOSQUITTO_ORIGIN)/$(LIBMOSQUITTO_BASENAME)/lib
+LIBMOSQUITTO_LIBCOMMON = $(LIBMOSQUITTO_ORIGIN)/$(LIBMOSQUITTO_BASENAME)/libcommon
+LIBMOSQUITTO_COMMON = $(LIBMOSQUITTO_ORIGIN)/$(LIBMOSQUITTO_BASENAME)/common
+LIBMOSQUITTO_PLUGINS = $(LIBMOSQUITTO_ORIGIN)/$(LIBMOSQUITTO_BASENAME)/plugins
+LIBMOSQUITTO_DEPS = $(LIBMOSQUITTO_ORIGIN)/$(LIBMOSQUITTO_BASENAME)/deps
+LIBMOSQUITTO_INCLUDE = $(LIBMOSQUITTO_ORIGIN)/$(LIBMOSQUITTO_BASENAME)/include
+
+################################################################################
+# Library includes
+################################################################################
+# Mosquitto source root must come first so its native config.h is found
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_ORIGIN)/$(LIBMOSQUITTO_BASENAME)
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_SRC)
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_LIB)
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_COMMON)
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_LIBCOMMON)
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_INCLUDE)
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_DEPS)
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_PLUGINS)/acl-file
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_PLUGINS)/password-file
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_CJSON_ORIGIN)
+# <sys/syslog.h> compatibility header, see include/sys/syslog.h
+LIBMOSQUITTO_CINCLUDES-y += -I$(LIBMOSQUITTO_BASE)/include
+
+################################################################################
+# Prepare symlink so <cjson/cJSON.h> resolves
+################################################################################
+$(LIBMOSQUITTO_CJSON_ORIGIN)/cjson: $(LIBMOSQUITTO_CJSON_SRC)/cJSON.h
+	ln -sfn $(LIBMOSQUITTO_CJSON_SRC) $(LIBMOSQUITTO_CJSON_ORIGIN)/cjson
+
+UK_PREPARE += $(LIBMOSQUITTO_CJSON_ORIGIN)/cjson
+
+################################################################################
+# Flags
+################################################################################
+# -DWITH_BROKER is the key flag that tells Mosquitto code we are building the broker
+LIBMOSQUITTO_CFLAGS-y += -DWITH_BROKER
+LIBMOSQUITTO_CFLAGS-y += -DWITH_PERSISTENCE
+LIBMOSQUITTO_CFLAGS-y += -DWITH_MEMORY_TRACKING
+LIBMOSQUITTO_CFLAGS-y += -DWITH_SYS_TREE
+LIBMOSQUITTO_CFLAGS-y += -DWITH_CONTROL
+LIBMOSQUITTO_CFLAGS-y += -DWITH_BRIDGE
+LIBMOSQUITTO_CFLAGS-y += -DWITH_BUNDLED_DEPS
+LIBMOSQUITTO_CFLAGS-y += -DWITH_THREADING
+LIBMOSQUITTO_CFLAGS-y += -DWITH_CJSON
+LIBMOSQUITTO_CFLAGS-y += -DWITH_EPOLL
+LIBMOSQUITTO_CFLAGS-y += -DHAVE_GETRANDOM
+LIBMOSQUITTO_CFLAGS-y += -DVERSION="\"$(LIBMOSQUITTO_VERSION)\""
+
+# Suppress warnings for neater build
+LIBMOSQUITTO_CFLAGS-y += -Wno-unused-parameter
+LIBMOSQUITTO_CFLAGS-y += -Wno-unused-variable
+LIBMOSQUITTO_CFLAGS-y += -Wno-unused-but-set-variable
+LIBMOSQUITTO_CFLAGS-y += -Wno-sign-compare
+
+# Rename main to mosquitto_main so we can wrap it
+LIBMOSQUITTO_MOSQUITTO_FLAGS-y += -Dmain=mosquitto_main
+LIBMOSQUITTO_RANDOM_COMMON_FLAGS-y += -include sys/random.h
+
+################################################################################
+# Main wrapper
+################################################################################
+LIBMOSQUITTO_SRCS-$(CONFIG_LIBMOSQUITTO_MAIN_FUNCTION) += $(LIBMOSQUITTO_BASE)/main.c|unikraft
+
+################################################################################
+# Broker source files (from src/)
+################################################################################
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/mosquitto.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/acl_file.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/bridge.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/bridge_topic.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/broker_control.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/conf.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/conf_includedir.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/context.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/control.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/control_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/database.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/handle_auth.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/handle_connack.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/handle_connect.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/handle_disconnect.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/handle_publish.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/handle_subscribe.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/handle_unsubscribe.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/keepalive.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/listeners.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/logging.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/loop.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/mux.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/mux_epoll.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/mux_poll.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/net.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/password_file.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/persist_read.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/persist_read_v234.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/persist_read_v5.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/persist_write.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/persist_write_v5.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_callbacks.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_v2.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_v3.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_v4.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_v5.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_acl_check.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_basic_auth.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_cleanup.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_client_offline.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_connect.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_disconnect.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_extended_auth.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_init.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_message.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_persist.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_psk_key.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_public.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_reload.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_subscribe.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_tick.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/plugin_unsubscribe.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/property_broker.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/proxy_v1.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/proxy_v2.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/psk_file.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/read_handle.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/retain.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/security_default.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/send_auth.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/send_connack.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/send_suback.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/send_unsuback.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/session_expiry.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/signals.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/subs.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/sys_tree.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/topic_tok.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/watchdog.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_SRC)/will_delay.c
+# Skipped: service.c (Win service), http_api.c (requires libmicrohttpd),
+#          xtreport.c (optional debug), mux_kqueue.c (bsd only),
+#          websockets.c/http_serv.c (need WITH_WEBSOCKETS; 2.1's built-in
+#          backend drops the libwebsockets dependency but requires openssl,see lib/net_ws.c)
+
+################################################################################
+# external source files (from lib/, common/, plugins/)
+################################################################################
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/alias_mosq.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/handle_ping.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/handle_pubackcomp.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/handle_pubrec.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/handle_pubrel.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/handle_suback.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/handle_unsuback.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/net_mosq.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/packet_datatypes.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/packet_mosq.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/property_mosq.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/send_connect.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/send_disconnect.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/send_mosq.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/send_publish.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/send_subscribe.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/send_unsubscribe.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/tls_mosq.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/util_mosq.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIB)/will_mosq.c
+# Skipped: net_mosq_ocsp.c, net_ws.c, http_client.c (need WITH_TLS)
+
+# common files
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_COMMON)/json_help.c
+
+# plugin files 
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_PLUGINS)/acl-file/acl_check.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_PLUGINS)/acl-file/acl_parse.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_PLUGINS)/password-file/password_check.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_PLUGINS)/password-file/password_parse.c
+
+# Libcommon files
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/base64_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/cjson_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/file_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/memory_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/mqtt_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/password_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/property_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/random_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/strings_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/time_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/topic_common.c
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_LIBCOMMON)/utf8_common.c
+
+################################################################################
+# cjson src file
+################################################################################
+LIBMOSQUITTO_SRCS-y += $(LIBMOSQUITTO_CJSON_SRC)/cJSON.c

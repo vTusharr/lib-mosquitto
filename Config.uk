@@ -1,0 +1,17 @@
+config LIBMOSQUITTO
+	bool "Eclipse Mosquitto MQTT broker"
+	default y
+	select LIBMUSL
+	select LIBPOSIX_SOCKET
+	select LIBPOSIX_EVENT
+	select LWIP_SOCKET
+	select LWIP_TCP
+	select LWIP_THREADS
+	select LWIP_TCP_KEEPALIVE
+	select LWIP_UKNETDEV
+	select LWIP_AUTOIFACE
+
+config LIBMOSQUITTO_MAIN_FUNCTION
+	bool "Provide main function"
+	default y
+	depends on LIBMOSQUITTO
